@@ -13,4 +13,4 @@
 
 ![workflow echo](https://github.com/user-attachments/assets/e9b5d3c2-9196-4cc9-9a46-d969a2a445e7)
 
-Should update the package.json version to 1.0.2
+abc
