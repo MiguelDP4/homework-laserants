@@ -12,15 +12,45 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensure full history for comparison
 
       - name: Read version from package.json
         id: get_version
         run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
+
+      - name: Get the previous tag
+        id: previous_tag
+        run: |
+          PREV_TAG=$(git tag --sort=-v:refname | head -n 1)
+          echo "PREV_TAG=${PREV_TAG}" >> $GITHUB_ENV
+
+      - name: Generate changelog (list of merged PRs)
+        id: changelog
+        run: |
+          if [ -z "${{ env.PREV_TAG }}" ]; then
+            echo "No previous tag found. Listing all PRs from the beginning."
+            RANGE=""
+          else
+            RANGE="${{ env.PREV_TAG }}..HEAD"
+          fi
+
+          PRS=$(git log --merges --pretty=format:"- %s ([#%h](https://github.com/${{ github.repository }}/pull/%h))" ${RANGE} | grep -E "Merge pull request")
+          
+          if [ -z "$PRS" ]; then
+            PRS="No pull requests found."
+          fi
+
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$PRS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ env.VERSION }}
           name: Release v${{ env.VERSION }}
-          body: "New release version ${{ env.VERSION }}"
+          body: |
+            ## Changes in this release:
+            ${{ env.CHANGELOG }}
           token: ${{ secrets.GITHUB_TOKEN }}
